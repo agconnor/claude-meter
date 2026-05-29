@@ -1,0 +1,4 @@
+.build/
+ClaudeMeter.app/
+*.xcodeproj
+.DS_Store
