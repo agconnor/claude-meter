@@ -18,10 +18,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ note: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "gauge.with.dots.needle.50percent",
-                                   accessibilityDescription: "Claude usage")
-            button.imagePosition = .imageLeading
-            button.title = " …"
+            button.imagePosition = .imageOnly
+            button.image = RingIcon.image(session: nil, week: nil)   // full rings while loading
         }
         statusItem.menu = buildMenu()
         refresh()
@@ -53,10 +51,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func render() {
         guard let button = statusItem.button else { return }
         if let usage = lastUsage {
-            button.title = " " + Formatting.menuBarTitle(session: usage.session, week: usage.week)
+            button.image = RingIcon.image(session: usage.session?.utilization,
+                                          week: usage.week?.utilization)
             button.contentTintColor = color(for: Formatting.peakLevel(usage))
+            button.toolTip = "Claude usage — " + Formatting.menuBarTitle(session: usage.session, week: usage.week)
         } else if let err = lastError {
-            button.title = " ⚠"
+            button.image = NSImage(systemSymbolName: "exclamationmark.triangle",
+                                   accessibilityDescription: "error")
             button.contentTintColor = .systemRed
             button.toolTip = err.description
         }
