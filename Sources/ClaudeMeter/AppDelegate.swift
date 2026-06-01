@@ -72,7 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             button.image = RingIcon.image(
                 session: lastUsage?.session, week: lastUsage?.week,
                 usageColor: usageColor(for: lastUsage.map(Formatting.peakLevel) ?? .normal),
-                timeColor: .systemBlue, appearance: appearance)
+                timeColor: .systemGreen, appearance: appearance)
             if let usage = lastUsage {
                 button.toolTip = "Claude usage — " + Formatting.menuBarTitle(session: usage.session, week: usage.week)
             }

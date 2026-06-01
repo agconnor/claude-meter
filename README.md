@@ -14,7 +14,7 @@ inner donut = week   (7d):  outer lane = usage,  inner lane = time-left
 Every lane is full when there's plenty left and is eaten away counter-clockwise
 from the top as that metric is consumed — full rings at a fresh start, empty at
 100% used / at reset. Usage lanes use the menu-bar foreground color (shifting to
-orange then red as usage gets high); the time-left lanes are blue. The two donuts
+orange then red as usage gets high); the time-left lanes are green. The two donuts
 are separated by a wide gap so session and week read as distinct rings.
 
 Click it for the full breakdown:
