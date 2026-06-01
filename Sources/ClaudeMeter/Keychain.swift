@@ -23,20 +23,4 @@ enum Keychain {
     static func readCredentials() -> Credentials? {
         readRaw().flatMap(UsageParser.parseCredentials)
     }
-
-    /// Rewrites only the token fields, preserving the rest of the blob so the item
-    /// stays compatible with Claude Code itself.
-    @discardableResult
-    static func updateTokens(accessToken: String, refreshToken: String, expiresAt: Double) -> Bool {
-        guard let raw = readRaw(),
-              let updated = UsageParser.updatedCredentialBlob(
-                raw, accessToken: accessToken, refreshToken: refreshToken, expiresAt: expiresAt),
-              let data = updated.data(using: .utf8) else { return false }
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-        ]
-        let attrs: [String: Any] = [kSecValueData as String: data]
-        return SecItemUpdate(query as CFDictionary, attrs as CFDictionary) == errSecSuccess
-    }
 }

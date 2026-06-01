@@ -1,37 +1,48 @@
 import AppKit
 import ClaudeMeterCore
 
-/// Renders the menu-bar glyph: two concentric donuts. The outer ring is the session
-/// (5h) window, the inner ring is the week (7d) window. Each is fully filled at 0%
-/// usage and is eaten away counter-clockwise from the top as it approaches 100%.
+/// Renders the menu-bar glyph: two concentric donuts, each split into two lanes.
+///
+///   outer donut = session (5h):  outer lane = usage, inner lane = time-left
+///   inner donut = week   (7d):  outer lane = usage, inner lane = time-left
+///
+/// In every lane the filled arc is what *remains*, eaten counter-clockwise from the
+/// top — so a lane is full at 0% used / a fresh window and empty at 100% / at reset.
 enum RingIcon {
-    private static let dim: CGFloat = 18
+    private static let dim: CGFloat = 20
 
-    // Outer donut (session) and inner donut (week): [outerRadius, innerRadius].
-    private static let sessionRing: (r0: CGFloat, r1: CGFloat) = (8.5, 5.5)
-    private static let weekRing: (r0: CGFloat, r1: CGFloat) = (4.0, 1.0)
+    // Lane radii (outerR, innerR), outermost first.
+    private static let sessionUsage: (CGFloat, CGFloat) = (9.5, 7.6)
+    private static let sessionTime:  (CGFloat, CGFloat) = (7.4, 5.5)
+    private static let weekUsage:    (CGFloat, CGFloat) = (4.9, 3.0)
+    private static let weekTime:     (CGFloat, CGFloat) = (2.8, 0.9)
 
-    static func image(session: Double?, week: Double?) -> NSImage {
+    static func image(session: UsageWindow?, week: UsageWindow?, now: Date = Date()) -> NSImage {
         let size = NSSize(width: dim, height: dim)
         let img = NSImage(size: size)
         img.lockFocus()
-        let center = CGPoint(x: dim / 2, y: dim / 2)
+        let c = CGPoint(x: dim / 2, y: dim / 2)
         NSColor.black.setFill()
-        drawRing(center: center, outer: sessionRing.r0, inner: sessionRing.r1,
-                 fraction: RingGeometry.filledFraction(utilization: session))
-        drawRing(center: center, outer: weekRing.r0, inner: weekRing.r1,
-                 fraction: RingGeometry.filledFraction(utilization: week))
+
+        lane(c, sessionUsage, RingGeometry.filledFraction(utilization: session?.utilization))
+        lane(c, sessionTime, RingGeometry.timeRemainingFraction(
+            resetsAt: session?.resetsAt, now: now, windowSeconds: WindowLength.session))
+        lane(c, weekUsage, RingGeometry.filledFraction(utilization: week?.utilization))
+        lane(c, weekTime, RingGeometry.timeRemainingFraction(
+            resetsAt: week?.resetsAt, now: now, windowSeconds: WindowLength.week))
+
         img.unlockFocus()
         img.isTemplate = true   // let the menu bar tint it (and honor contentTintColor)
         return img
     }
 
-    /// Fills the remaining `fraction` of an annulus, starting at the top (12 o'clock)
-    /// and sweeping clockwise — so the empty arc grows counter-clockwise.
-    private static func drawRing(center: CGPoint, outer: CGFloat, inner: CGFloat, fraction: Double) {
-        guard fraction > 0 else { return }   // 100% used → nothing drawn
+    /// Fills the remaining `fraction` of one annulus lane, starting at the top
+    /// (12 o'clock) and sweeping clockwise — so the empty arc grows counter-clockwise.
+    private static func lane(_ center: CGPoint, _ radii: (CGFloat, CGFloat), _ fraction: Double) {
+        let (outer, inner) = radii
+        guard fraction > 0 else { return }            // fully consumed → nothing drawn
 
-        if fraction >= 1 {                    // 0% used → solid ring (annulus via even-odd)
+        if fraction >= 1 {                            // full lane → solid annulus (even-odd)
             let path = NSBezierPath(ovalIn: rect(center, outer))
             path.append(NSBezierPath(ovalIn: rect(center, inner)))
             path.windingRule = .evenOdd

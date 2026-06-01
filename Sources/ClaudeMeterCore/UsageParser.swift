@@ -15,21 +15,6 @@ public enum UsageParser {
         return Credentials(accessToken: access, refreshToken: refresh, expiresAt: expires)
     }
 
-    /// Produce an updated credential blob string, mutating only the token fields and
-    /// preserving every other key, so the rewritten item stays compatible with Claude Code.
-    public static func updatedCredentialBlob(_ raw: String, accessToken: String,
-                                             refreshToken: String, expiresAt: Double) -> String? {
-        guard let data = raw.data(using: .utf8),
-              var root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              var oauth = root["claudeAiOauth"] as? [String: Any] else { return nil }
-        oauth["accessToken"] = accessToken
-        oauth["refreshToken"] = refreshToken
-        oauth["expiresAt"] = expiresAt
-        root["claudeAiOauth"] = oauth
-        guard let out = try? JSONSerialization.data(withJSONObject: root) else { return nil }
-        return String(data: out, encoding: .utf8)
-    }
-
     /// Parse GET /api/oauth/usage.
     public static func parseUsage(_ data: Data, now: Date = Date()) -> Usage? {
         guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }

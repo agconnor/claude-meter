@@ -19,7 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
             button.imagePosition = .imageOnly
-            button.image = RingIcon.image(session: nil, week: nil)   // full rings while loading
+            button.image = RingIcon.image(session: nil, week: nil)   // full lanes while loading
         }
         statusItem.menu = buildMenu()
         refresh()
@@ -51,8 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func render() {
         guard let button = statusItem.button else { return }
         if let usage = lastUsage {
-            button.image = RingIcon.image(session: usage.session?.utilization,
-                                          week: usage.week?.utilization)
+            button.image = RingIcon.image(session: usage.session, week: usage.week)
             button.contentTintColor = color(for: Formatting.peakLevel(usage))
             button.toolTip = "Claude usage — " + Formatting.menuBarTitle(session: usage.session, week: usage.week)
         } else if let err = lastError {

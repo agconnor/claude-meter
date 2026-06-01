@@ -27,30 +27,6 @@ final class UsageParserTests: XCTestCase {
         XCTAssertNil(UsageParser.parseCredentials(#"{"claudeAiOauth":42}"#))
     }
 
-    // MARK: - Credential blob rewrite
-
-    func testUpdatedCredentialBlobPreservesOtherFields() throws {
-        let raw = #"{"claudeAiOauth":{"accessToken":"old","refreshToken":"oldR","expiresAt":1,"scopes":["x","y"],"subscriptionType":"max","rateLimitTier":"t"}}"#
-        let updated = try XCTUnwrap(
-            UsageParser.updatedCredentialBlob(raw, accessToken: "new", refreshToken: "newR", expiresAt: 999))
-
-        // The token fields are updated...
-        let c = try XCTUnwrap(UsageParser.parseCredentials(updated))
-        XCTAssertEqual(c, Credentials(accessToken: "new", refreshToken: "newR", expiresAt: 999))
-
-        // ...and the unrelated fields survive untouched.
-        let data = try XCTUnwrap(updated.data(using: .utf8))
-        let root = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
-        let oauth = try XCTUnwrap(root["claudeAiOauth"] as? [String: Any])
-        XCTAssertEqual(oauth["subscriptionType"] as? String, "max")
-        XCTAssertEqual(oauth["rateLimitTier"] as? String, "t")
-        XCTAssertEqual(oauth["scopes"] as? [String], ["x", "y"])
-    }
-
-    func testUpdatedCredentialBlobRejectsGarbage() {
-        XCTAssertNil(UsageParser.updatedCredentialBlob("nope", accessToken: "a", refreshToken: "b", expiresAt: 1))
-    }
-
     // MARK: - Usage payload
 
     /// The exact shape returned by the live endpoint.
