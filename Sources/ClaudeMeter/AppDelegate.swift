@@ -19,11 +19,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
             button.imagePosition = .imageOnly
-            button.image = RingIcon.image(session: nil, week: nil)   // full lanes while loading
         }
+        render()                                    // full lanes while loading
         statusItem.menu = buildMenu()
         refresh()
         restartTimer()
+
+        // Redraw when the user switches between light and dark, so the (colored,
+        // non-template) icon's foreground stays correct.
+        DistributedNotificationCenter.default.addObserver(
+            self, selector: #selector(appearanceChanged),
+            name: NSNotification.Name("AppleInterfaceThemeChangedNotification"), object: nil)
+    }
+
+    @objc private func appearanceChanged() {
+        DispatchQueue.main.async { [weak self] in self?.render() }
     }
 
     // MARK: - Refresh
@@ -50,22 +60,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func render() {
         guard let button = statusItem.button else { return }
-        if let usage = lastUsage {
-            button.image = RingIcon.image(session: usage.session, week: usage.week)
-            button.contentTintColor = color(for: Formatting.peakLevel(usage))
-            button.toolTip = "Claude usage — " + Formatting.menuBarTitle(session: usage.session, week: usage.week)
-        } else if let err = lastError {
+        let appearance = button.effectiveAppearance
+        if let err = lastError {
             button.image = NSImage(systemSymbolName: "exclamationmark.triangle",
                                    accessibilityDescription: "error")
             button.contentTintColor = .systemRed
             button.toolTip = err.description
+        } else {
+            // No data yet → full lanes in the loading/neutral colors.
+            button.contentTintColor = nil
+            button.image = RingIcon.image(
+                session: lastUsage?.session, week: lastUsage?.week,
+                usageColor: usageColor(for: lastUsage.map(Formatting.peakLevel) ?? .normal),
+                timeColor: .systemBlue, appearance: appearance)
+            if let usage = lastUsage {
+                button.toolTip = "Claude usage — " + Formatting.menuBarTitle(session: usage.session, week: usage.week)
+            }
         }
         statusItem.menu = buildMenu()
     }
 
-    private func color(for level: Formatting.Level) -> NSColor? {
+    /// Foreground color for the usage lanes: the menu-bar label color normally,
+    /// shifting to orange/red as usage climbs.
+    private func usageColor(for level: Formatting.Level) -> NSColor {
         switch level {
-        case .normal: return nil               // default menu-bar tint
+        case .normal: return .labelColor       // adapts to light/dark menu bar
         case .warning: return .systemOrange
         case .critical: return .systemRed
         }

@@ -7,32 +7,45 @@ import ClaudeMeterCore
 ///   inner donut = week   (7d):  outer lane = usage, inner lane = time-left
 ///
 /// In every lane the filled arc is what *remains*, eaten counter-clockwise from the
-/// top — so a lane is full at 0% used / a fresh window and empty at 100% / at reset.
+/// top. The two donuts are separated by a wide gap so the session/week grouping
+/// reads clearly. Usage lanes are drawn in `usageColor` (the menu-bar foreground,
+/// or a warning tint); time-left lanes in `timeColor` (blue). Because it is colored
+/// it is NOT a template image, so the caller passes the menu bar's appearance and we
+/// resolve the dynamic colors against it.
 enum RingIcon {
     private static let dim: CGFloat = 20
 
-    // Lane radii (outerR, innerR), outermost first.
-    private static let sessionUsage: (CGFloat, CGFloat) = (9.5, 7.6)
-    private static let sessionTime:  (CGFloat, CGFloat) = (7.4, 5.5)
-    private static let weekUsage:    (CGFloat, CGFloat) = (4.9, 3.0)
-    private static let weekTime:     (CGFloat, CGFloat) = (2.8, 0.9)
+    // Lane radii (outerR, innerR), outermost first. The big gap between the session
+    // time lane (…6.15) and the week usage lane (4.6…) is the inter-donut spacing.
+    private static let sessionUsage: (CGFloat, CGFloat) = (9.6, 8.0)
+    private static let sessionTime:  (CGFloat, CGFloat) = (7.75, 6.15)
+    private static let weekUsage:    (CGFloat, CGFloat) = (4.6, 3.0)
+    private static let weekTime:     (CGFloat, CGFloat) = (2.75, 1.15)
 
-    static func image(session: UsageWindow?, week: UsageWindow?, now: Date = Date()) -> NSImage {
+    static func image(session: UsageWindow?, week: UsageWindow?, now: Date = Date(),
+                      usageColor: NSColor, timeColor: NSColor,
+                      appearance: NSAppearance? = nil) -> NSImage {
         let size = NSSize(width: dim, height: dim)
         let img = NSImage(size: size)
         img.lockFocus()
         let c = CGPoint(x: dim / 2, y: dim / 2)
-        NSColor.black.setFill()
 
-        lane(c, sessionUsage, RingGeometry.filledFraction(utilization: session?.utilization))
-        lane(c, sessionTime, RingGeometry.timeRemainingFraction(
-            resetsAt: session?.resetsAt, now: now, windowSeconds: WindowLength.session))
-        lane(c, weekUsage, RingGeometry.filledFraction(utilization: week?.utilization))
-        lane(c, weekTime, RingGeometry.timeRemainingFraction(
-            resetsAt: week?.resetsAt, now: now, windowSeconds: WindowLength.week))
+        let draw = {
+            usageColor.setFill()
+            lane(c, sessionUsage, RingGeometry.filledFraction(utilization: session?.utilization))
+            lane(c, weekUsage, RingGeometry.filledFraction(utilization: week?.utilization))
+
+            timeColor.setFill()
+            lane(c, sessionTime, RingGeometry.timeRemainingFraction(
+                resetsAt: session?.resetsAt, now: now, windowSeconds: WindowLength.session))
+            lane(c, weekTime, RingGeometry.timeRemainingFraction(
+                resetsAt: week?.resetsAt, now: now, windowSeconds: WindowLength.week))
+        }
+        // Resolve dynamic colors (labelColor / systemBlue) against the menu bar's appearance.
+        if let appearance { appearance.performAsCurrentDrawingAppearance(draw) } else { draw() }
 
         img.unlockFocus()
-        img.isTemplate = true   // let the menu bar tint it (and honor contentTintColor)
+        img.isTemplate = false   // colored — not a single-tint template
         return img
     }
 
