@@ -16,12 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ note: Notification) {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        if let button = statusItem.button {
-            button.imagePosition = .imageOnly
-        }
-        render()                                    // full lanes while loading
-        statusItem.menu = buildMenu()
+        installStatusItem()
         refresh()
         restartTimer()
 
@@ -30,6 +25,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DistributedNotificationCenter.default.addObserver(
             self, selector: #selector(appearanceChanged),
             name: NSNotification.Name("AppleInterfaceThemeChangedNotification"), object: nil)
+
+        // macOS can drop or blank the status item when it reconfigures the menu bar
+        // (display add/remove, resolution change). Re-assert it on screen changes…
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(reassertStatusItem),
+            name: NSApplication.didChangeScreenParametersNotification, object: nil)
+
+        // …and on wake, where the item can also vanish and the data is stale.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self, selector: #selector(handleWake),
+            name: NSWorkspace.didWakeNotification, object: nil)
+    }
+
+    /// Creates (or re-creates) the status item and paints the current state.
+    /// `autosaveName` keeps its position stable across re-creation.
+    @objc private func installStatusItem() {
+        if let old = statusItem { NSStatusBar.system.removeStatusItem(old) }
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem.autosaveName = "ClaudeMeter"
+        statusItem.button?.imagePosition = .imageOnly
+        render()
+    }
+
+    /// Screen reconfigurations often emit several notifications in a burst, so
+    /// coalesce them into a single re-assert to avoid flicker.
+    @objc private func reassertStatusItem() {
+        NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(installStatusItem), object: nil)
+        perform(#selector(installStatusItem), with: nil, afterDelay: 0.5)
+    }
+
+    @objc private func handleWake() {
+        DispatchQueue.main.async { [weak self] in
+            self?.installStatusItem()   // re-assert in case it was dropped
+            self?.restartTimer()        // timers drift across sleep
+            self?.refresh()             // data is stale after sleep
+        }
     }
 
     @objc private func appearanceChanged() {
